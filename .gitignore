@@ -1,0 +1,18 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+local.properties
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.kotlin/
+
+# OS
+.DS_Store
+
+# Session tooling
+.remember/
