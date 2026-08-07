@@ -1,0 +1,96 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Every platform has its own backend, so a failure on one still needs the others reported.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.24'
+          cache-dependency-path: interop/go.sum
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Lets the test suite verify that jo-keyring and go-keyring read each other's secrets.
+      - name: Build the go-keyring interop helper
+        id: helper
+        shell: bash
+        run: |
+          suffix=''
+          if [ "$RUNNER_OS" = 'Windows' ]; then suffix='.exe'; fi
+          path="$RUNNER_TEMP/go-keyring-helper$suffix"
+          (cd interop && go build -o "$path" .)
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+
+      - name: Install the Secret Service daemon
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnome-keyring dbus-x11
+
+      # Linux needs a session bus and an unlocked keyring, the same setup go-keyring's own CI uses.
+      # The bus is given an explicit path because dbus-run-session hands out an abstract socket,
+      # which the JVM has no way to address.
+      - name: Build and test on Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          JO_KEYRING_GO_HELPER: ${{ steps.helper.outputs.path }}
+        run: |
+          mkdir -p "$HOME/.local/share/keyrings"
+          chmod 700 "$HOME/.local/share/keyrings"
+
+          export DBUS_SESSION_BUS_ADDRESS="unix:path=$RUNNER_TEMP/dbus-session"
+          dbus-daemon --session --address="$DBUS_SESSION_BUS_ADDRESS" --fork
+          echo -n 'jo-keyring-ci' | gnome-keyring-daemon --unlock
+
+          echo 'Names on the session bus:'
+          dbus-send --session --print-reply --dest=org.freedesktop.DBus \
+            /org/freedesktop/DBus org.freedesktop.DBus.ListNames | grep -i secret || true
+
+          ./gradlew build
+
+      - name: Build and test
+        if: runner.os != 'Linux'
+        shell: bash
+        env:
+          JO_KEYRING_GO_HELPER: ${{ steps.helper.outputs.path }}
+        run: ./gradlew build
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-${{ matrix.os }}
+          path: build/reports/tests/test
+          retention-days: 7

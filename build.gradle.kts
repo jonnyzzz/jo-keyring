@@ -61,8 +61,11 @@ mavenPublishing {
     publishToMavenCentral()
 
     // Only sign when a key is actually available, so `./gradlew build` and
-    // `publishToMavenLocal` work on a machine with no GPG setup.
-    if (providers.gradleProperty("signingInMemoryKey").isPresent) {
+    // `publishToMavenLocal` work on a machine with no GPG setup. CI supplies the key through
+    // ORG_GRADLE_PROJECT_signingInMemoryKey, which Gradle also exposes as a project property.
+    val signingKey = providers.gradleProperty("signingInMemoryKey")
+        .orElse(providers.environmentVariable("ORG_GRADLE_PROJECT_signingInMemoryKey"))
+    if (signingKey.isPresent) {
         signAllPublications()
     }
 }

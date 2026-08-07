@@ -1,0 +1,26 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: 'ci:'
+
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: 'build:'
+
+  # The interop helper deliberately pins the upstream commit that was ported, so go-keyring itself
+  # is left alone; only its transitive dependencies are worth updating.
+  - package-ecosystem: gomod
+    directory: /interop
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: 'test:'
+    ignore:
+      - dependency-name: github.com/zalando/go-keyring

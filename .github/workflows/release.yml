@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish, without the leading v'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to Maven Central
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Resolve the version
+        id: version
+        shell: bash
+        run: |
+          if [ -n '${{ inputs.version }}' ]; then
+            version='${{ inputs.version }}'
+          else
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+          echo "Publishing version $version"
+
+      # Publishing needs four secrets. Until they exist this job reports a notice and succeeds,
+      # so that tagging a release is never blocked by missing credentials.
+      - name: Check for publishing credentials
+        id: credentials
+        shell: bash
+        env:
+          CENTRAL_PORTAL_USERNAME: ${{ secrets.CENTRAL_PORTAL_USERNAME }}
+          CENTRAL_PORTAL_PASSWORD: ${{ secrets.CENTRAL_PORTAL_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+        run: |
+          missing=()
+          [ -n "$CENTRAL_PORTAL_USERNAME" ] || missing+=(CENTRAL_PORTAL_USERNAME)
+          [ -n "$CENTRAL_PORTAL_PASSWORD" ] || missing+=(CENTRAL_PORTAL_PASSWORD)
+          [ -n "$SIGNING_KEY" ] || missing+=(SIGNING_KEY)
+          [ -n "$SIGNING_PASSWORD" ] || missing+=(SIGNING_PASSWORD)
+
+          if [ ${#missing[@]} -eq 0 ]; then
+            echo 'present=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'present=false' >> "$GITHUB_OUTPUT"
+            echo "::notice title=Publication skipped::Missing repository secrets: ${missing[*]}. See CONTRIBUTING.md for how to configure them."
+          fi
+
+      - name: Build and verify
+        shell: bash
+        run: ./gradlew build -Pversion=${{ steps.version.outputs.value }}
+
+      - name: Publish
+        if: steps.credentials.outputs.present == 'true'
+        shell: bash
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.CENTRAL_PORTAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.CENTRAL_PORTAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
+        run: |
+          ./gradlew publishToMavenCentral \
+            -Pversion=${{ steps.version.outputs.value }} \
+            --no-configuration-cache

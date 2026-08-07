@@ -43,8 +43,8 @@ internal class SecretService private constructor(
             }
 
             /**
-             * Builds a secret for [session], labelling the content type the way upstream does:
-             * text when the bytes decode as UTF-8, an opaque stream otherwise.
+             * Builds a secret for the session at [sessionPath], labelling the content type the way
+             * upstream does: text when the bytes decode as UTF-8, an opaque stream otherwise.
              */
             fun of(sessionPath: String, value: ByteArray): Secret = Secret(
                 sessionPath = sessionPath,
