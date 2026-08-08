@@ -30,7 +30,7 @@ visibility and return types.
 
 ## Tests
 
-Three layers, and it is worth knowing which one you are in:
+Four layers, and it is worth knowing which one you are in:
 
 1. **Unit tests** run everywhere with no keyring: shell escaping, secret encoding, the D-Bus
    marshalling golden vectors, and the `CREDENTIALW` struct offsets.
@@ -43,7 +43,21 @@ Three layers, and it is worth knowing which one you are in:
    JO_KEYRING_GO_HELPER=/tmp/go-keyring-helper ./gradlew test
    ```
 
-CI runs all three on Ubuntu, macOS and Windows. Since the Linux and Windows backends cannot be
+4. **The consumer smoke test** (`consumer-smoke-test/`) is a separate Gradle build that resolves the
+   published artifact from `mavenLocal` and uses it across a module boundary:
+
+   ```bash
+   ./gradlew publishToMavenLocal -Pversion=0.0.0-smoke
+   ./gradlew -p consumer-smoke-test check -PjoKeyringVersion=0.0.0-smoke
+   ```
+
+   This is the only layer that can catch packaging faults: a class missing from the jar, a
+   declaration that should have been public, a wrong POM, or an unwanted transitive dependency. It
+   found one real defect already — `MockKeyringBackend(failWith = ...)` used to take a
+   `KeyringException`, whose constructors are all internal, so no consumer could supply a value.
+   Keep it in mind when changing anything about the public surface.
+
+CI runs all four on Ubuntu, macOS and Windows. Since the Linux and Windows backends cannot be
 exercised on a macOS development machine, prefer changes that are covered by the platform-independent
 layers as well: golden vectors for D-Bus, offset assertions for Win32.
 

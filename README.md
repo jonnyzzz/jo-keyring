@@ -28,7 +28,9 @@ keeps it:
 | Windows | `advapi32.dll` through `java.lang.foreign` | JNA and its bundled native stubs |
 
 The published POM declares exactly one dependency, `kotlin-stdlib`, which any Kotlin consumer already
-has. Adding `jo-keyring` pulls in one jar and changes nothing else about your dependency graph.
+has. A consumer's resolved runtime classpath is therefore just `jo-keyring`, `kotlin-stdlib`, and
+`org.jetbrains:annotations` — and the last of those comes from `kotlin-stdlib`, not from here. A CI
+check asserts exactly that, so this claim cannot quietly stop being true.
 
 ## Requirements
 

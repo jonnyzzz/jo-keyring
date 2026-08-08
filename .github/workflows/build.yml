@@ -14,6 +14,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Version the consumer smoke test resolves from mavenLocal. Deliberately unpublishable, so it can
+  # never be confused with, or resolve against, a real release.
+  SMOKE_VERSION: 0.0.0-smoke
+
 jobs:
   build:
     name: ${{ matrix.os }}
@@ -80,12 +85,22 @@ jobs:
 
           ./gradlew build
 
+          # Same shell, so the smoke test inherits the session bus and unlocked keyring.
+          ./gradlew publishToMavenLocal -Pversion="$SMOKE_VERSION"
+          ./gradlew -p consumer-smoke-test check -PjoKeyringVersion="$SMOKE_VERSION"
+
       - name: Build and test
         if: runner.os != 'Linux'
         shell: bash
         env:
           JO_KEYRING_GO_HELPER: ${{ steps.helper.outputs.path }}
-        run: ./gradlew build
+        run: |
+          ./gradlew build
+
+          # Consume the published artifact from a separate build, the way a real user would. Catches
+          # packaging faults the in-tree suite cannot see, because it never crosses a module boundary.
+          ./gradlew publishToMavenLocal -Pversion="$SMOKE_VERSION"
+          ./gradlew -p consumer-smoke-test check -PjoKeyringVersion="$SMOKE_VERSION"
 
       - name: Upload test reports
         if: failure()

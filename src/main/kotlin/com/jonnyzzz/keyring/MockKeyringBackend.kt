@@ -16,11 +16,15 @@ import java.util.concurrent.ConcurrentHashMap
  * }
  * ```
  *
- * @param failWith when non-null, every operation throws this instead of touching the store.
- *   Replaces upstream's `MockInitWithError`.
+ * @param failWith when non-null, every operation throws this instead of touching the store, so that
+ *   code handling a broken keyring can be tested. Replaces upstream's `MockInitWithError`.
+ *
+ *   Typed as [Throwable] rather than [KeyringException] on purpose: every `KeyringException`
+ *   constructor is internal, so a consumer of this library could not construct one, which would
+ *   leave this parameter unusable outside the library.
  */
 public class MockKeyringBackend(
-    private val failWith: KeyringException? = null,
+    private val failWith: Throwable? = null,
 ) : KeyringBackend {
 
     private val store = ConcurrentHashMap<String, ConcurrentHashMap<String, ByteArray>>()
