@@ -304,12 +304,11 @@ internal class DBusConnection private constructor(
             val address = UnixDomainSocketAddress.of(socketPath)
 
             val channel = try {
+                // Connect while still in blocking mode, so there is no spin loop waiting for
+                // finishConnect. Reads and writes need non-blocking mode for their timeouts.
                 SocketChannel.open(StandardProtocolFamily.UNIX).apply {
+                    connect(address)
                     configureBlocking(false)
-                    if (!connect(address)) {
-                        // A unix socket connect completes immediately or fails; loop defensively.
-                        while (!finishConnect()) Thread.onSpinWait()
-                    }
                 }
             } catch (e: IOException) {
                 throw DBusException("Cannot connect to the D-Bus session bus at $socketPath", e)
