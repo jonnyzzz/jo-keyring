@@ -124,6 +124,10 @@ internal object DBusAddress {
      * `/proc/self` gives it directly on Linux. Elsewhere, the owner of a file this process has just
      * created is by definition its effective uid, which works on the BSDs too and needs no native
      * call.
+     *
+     * POSIX only. On a filesystem with no unix ownership, such as any Windows one, this throws
+     * [DBusException]. That is not a limitation in practice: the only caller is the Secret Service
+     * backend, which is never selected off Linux and the BSDs.
      */
     fun currentUid(): Long {
         runCatching {

@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.condition.DisabledOnOs
+import org.junit.jupiter.api.condition.OS
 
 class DBusAddressTest {
 
@@ -77,7 +79,11 @@ class DBusAddressTest {
     }
 
     @Test
-    fun `the current uid is resolvable on this machine`() {
+    @DisabledOnOs(
+        OS.WINDOWS,
+        disabledReason = "unix file ownership, and the D-Bus backend itself, do not exist here",
+    )
+    fun `the current uid is resolvable on a posix machine`() {
         // Needed for SASL EXTERNAL. The implementation prefers /proc/self and falls back to the
         // ownership of a freshly created file, so this must work on macOS as well as Linux.
         val uid = DBusAddress.currentUid()
