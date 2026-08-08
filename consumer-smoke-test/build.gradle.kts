@@ -34,7 +34,7 @@ tasks.test {
  * This is the check that keeps the README's dependency claim honest. `kotlin-stdlib` is expected, and
  * so is whatever `kotlin-stdlib` itself pulls in, but jo-keyring must contribute nothing of its own.
  */
-val verifyRuntimeClasspath by tasks.registering {
+val verifyRuntimeClasspath = tasks.register("verifyRuntimeClasspath") {
     val resolved = configurations.named("runtimeClasspath")
         .flatMap { it.incoming.artifacts.resolvedArtifacts }
 
