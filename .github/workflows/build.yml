@@ -44,7 +44,7 @@ jobs:
           go-version: '1.24'
           cache-dependency-path: interop/go.sum
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       # Lets the test suite verify that jo-keyring and go-keyring read each other's secrets.
       - name: Build the go-keyring interop helper
